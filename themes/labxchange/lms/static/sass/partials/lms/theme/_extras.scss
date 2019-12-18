@@ -1,0 +1,66 @@
+
+.login-register-content {
+  display: block;
+  background: transparent;
+}
+.login-register {
+  background: transparent;
+  max-width: 600px;
+  padding: 0;
+  margin: 0 10px;
+}
+.labx-card {
+  background: white;
+  background: #FFFFFF;
+  box-shadow: 0 3px 10px 0 rgba(0,0,0,0.40);
+  border-radius: 6px;
+  padding: 2rem 1rem;
+  color: #003660;
+}
+.labx-card-header {
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  margin: -2rem -1rem 0;
+  padding: 1rem;
+  background: #F4F6F8;
+  border-bottom: solid 1px #8EA9BC;
+  margin-bottom: 2rem;
+}
+
+@media(min-width: 400px) {
+  .labx-card,
+  .labx-card-header {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+  .labx-card-header {
+    margin-left: -2rem;
+    margin-right: -2rem;
+  }
+}
+@media(min-width:620px) {
+  .login-register {
+    margin: 0 auto;
+  }
+}
+
+.labx-logo {
+  display: block;
+  margin: 0 auto;
+}
+
+.labx-card .btn {
+  text-decoration: none;
+}
+
+.window-wrap {
+  background-image: linear-gradient(180deg, #02406E 400px, #1A5798 800px);
+  min-height: 100vh;
+}
+
+.toggle-form {
+  text-align: center;
+}
+.toggle-form .text {
+  margin-right: 1rem;
+}
