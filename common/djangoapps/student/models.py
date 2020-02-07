@@ -2983,7 +2983,7 @@ class AccountRecovery(models.Model):
             email (str): New email address to be set as the secondary email address.
         """
         self.secondary_email = email
-        self.is_active = False
+        self.is_active = True
         self.save()
 
     @classmethod
