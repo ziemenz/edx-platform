@@ -23,6 +23,8 @@ import track.views
 from bulk_email.api import is_bulk_email_feature_enabled
 from bulk_email.models import Optout  # pylint: disable=import-error
 from course_modes.models import CourseMode
+
+from common.djangoapps.student.models import PendingSecondaryEmailChange
 from lms.djangoapps.courseware.access import has_access
 from edxmako.shortcuts import render_to_response, render_to_string
 from entitlements.models import CourseEntitlement
@@ -667,7 +669,8 @@ def student_dashboard(request):
                 link_end=HTML("</a>")
             )
         else:
-            if not account_recovery_obj.is_active:
+            pending_email = PendingSecondaryEmailChange.objects.filter(user=user)
+            if len(pending_email) > 0 or not account_recovery_obj.is_active:
                 recovery_email_activation_message = Text(
                     _(
                         "Recovery email is not activated yet. "
