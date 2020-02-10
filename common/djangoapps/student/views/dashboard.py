@@ -670,7 +670,7 @@ def student_dashboard(request):
             )
         else:
             pending_email = PendingSecondaryEmailChange.objects.filter(user=user)
-            if len(pending_email) > 0 or not account_recovery_obj.is_active:
+            if len(pending_email) > 0:
                 recovery_email_activation_message = Text(
                     _(
                         "Recovery email is not activated yet. "
