@@ -655,27 +655,27 @@ def student_dashboard(request):
 
     recovery_email_message = recovery_email_activation_message = None
     if is_secondary_email_feature_enabled_for_user(user=user):
-        try:
-            account_recovery_obj = AccountRecovery.objects.get(user=user)
-        except AccountRecovery.DoesNotExist:
-            recovery_email_message = Text(
+        pending_email = PendingSecondaryEmailChange.objects.filter(user=user)
+        if len(pending_email) > 0:
+            recovery_email_activation_message = Text(
                 _(
-                    "Add a recovery email to retain access when single-sign on is not available. "
-                    "Go to {link_start}your Account Settings{link_end}.")
-            ).format(
-                link_start=HTML("<a href='{account_setting_page}'>").format(
-                    account_setting_page=reverse('account_settings'),
-                ),
-                link_end=HTML("</a>")
+                    "Recovery email is not activated yet. "
+                    "Kindly visit your email and follow the instructions to activate it."
+                )
             )
         else:
-            pending_email = PendingSecondaryEmailChange.objects.filter(user=user)
-            if len(pending_email) > 0:
-                recovery_email_activation_message = Text(
+            try:
+                account_recovery_obj = AccountRecovery.objects.get(user=user)
+            except AccountRecovery.DoesNotExist:
+                recovery_email_message = Text(
                     _(
-                        "Recovery email is not activated yet. "
-                        "Kindly visit your email and follow the instructions to activate it."
-                    )
+                        "Add a recovery email to retain access when single-sign on is not available. "
+                        "Go to {link_start}your Account Settings{link_end}.")
+                ).format(
+                    link_start=HTML("<a href='{account_setting_page}'>").format(
+                        account_setting_page=reverse('account_settings'),
+                    ),
+                    link_end=HTML("</a>")
                 )
 
     # Disable lookup of Enterprise consent_required_course due to ENT-727
