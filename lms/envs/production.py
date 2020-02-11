@@ -768,6 +768,12 @@ if FEATURES.get('ENABLE_OAUTH2_PROVIDER'):
     OAUTH_ID_TOKEN_EXPIRATION = ENV_TOKENS.get('OAUTH_ID_TOKEN_EXPIRATION', OAUTH_ID_TOKEN_EXPIRATION)
     OAUTH_DELETE_EXPIRED = ENV_TOKENS.get('OAUTH_DELETE_EXPIRED', OAUTH_DELETE_EXPIRED)
 
+##### Changing Authentication Class ####
+# Toggles auth class in discussions djangoapps
+DISCUSSION_USE_NEW_OAUTH2_CLASS = ENV_TOKENS.get('DISCUSSION_USE_NEW_OAUTH2_CLASS', False)
+# Toggles auth class in bookmakrs djangoapps
+BOOKMARKS_USE_NEW_OAUTH2_CLASS = ENV_TOKENS.get('BOOKMARKS_USE_NEW_OAUTH2_CLASS', False)
+
 ##### GOOGLE ANALYTICS IDS #####
 GOOGLE_ANALYTICS_ACCOUNT = AUTH_TOKENS.get('GOOGLE_ANALYTICS_ACCOUNT')
 GOOGLE_ANALYTICS_TRACKING_ID = AUTH_TOKENS.get('GOOGLE_ANALYTICS_TRACKING_ID')
@@ -1092,7 +1098,7 @@ PARENTAL_CONSENT_AGE_LIMIT = ENV_TOKENS.get(
 ########################## Extra middleware classes  #######################
 
 # Allow extra middleware classes to be added to the app through configuration.
-MIDDLEWARE_CLASSES.extend(ENV_TOKENS.get('EXTRA_MIDDLEWARE_CLASSES', []))
+MIDDLEWARE.extend(ENV_TOKENS.get('EXTRA_MIDDLEWARE_CLASSES', []))
 
 ########################## Settings for Completion API #####################
 

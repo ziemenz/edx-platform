@@ -130,6 +130,11 @@ FEATURES = {
     # Toggles OAuth2 authentication provider
     'ENABLE_OAUTH2_PROVIDER': False,
 
+    # Toggles auth class in discussions djangoapps
+    'DISCUSSION_USE_NEW_OAUTH2_CLASS': False,
+    # Toggles auth class in bookmarks djangoapps
+    'BOOKMARKS_USE_NEW_OAUTH2_CLASS': False,
+
     # Allows to enable an API endpoint to serve XBlock view, used for example by external applications.
     # See jquey-xblock: https://github.com/edx-solutions/jquery-xblock
     'ENABLE_XBLOCK_VIEW_ENDPOINT': False,
@@ -971,7 +976,7 @@ DOC_STORE_CONFIG = {
     # https://api.mongodb.com/python/2.9.1/api/pymongo/mongo_client.html#module-pymongo.mongo_client
     # default is never timeout while the connection is open,
     #this means it needs to explicitly close raising pymongo.errors.NetworkTimeout
-    'socketTimeoutMS': 3000,
+    'socketTimeoutMS': 6000,
     'connectTimeoutMS': 2000,  # default is 20000, I believe raises pymongo.errors.ConnectionFailure
     # Not setting waitQueueTimeoutMS and waitQueueMultiple since pymongo defaults to nobody being allowed to wait
     'auth_source': None,
@@ -1100,7 +1105,7 @@ DEBUG = False
 USE_TZ = True
 SESSION_COOKIE_SECURE = False
 SESSION_SAVE_EVERY_REQUEST = False
-SESSION_SERIALIZER = 'openedx.core.lib.session_serializers.PickleV2Serializer'
+SESSION_SERIALIZER = 'openedx.core.lib.session_serializers.PickleSerializer'
 SESSION_COOKIE_DOMAIN = ""
 SESSION_COOKIE_NAME = 'sessionid'
 
@@ -1428,7 +1433,7 @@ CREDIT_NOTIFICATION_CACHE_TIMEOUT = 5 * 60 * 60
 
 ################################# Middleware ###################################
 
-MIDDLEWARE_CLASSES = [
+MIDDLEWARE = [
     'openedx.core.lib.x_forwarded_for.middleware.XForwardedForMiddleware',
 
     'crum.CurrentRequestUserMiddleware',
@@ -2507,6 +2512,9 @@ INSTALLED_APPS = [
 
     # signal handlers to capture course dates into edx-when
     'openedx.core.djangoapps.course_date_signals',
+
+    # Management of external user ids
+    'openedx.core.djangoapps.external_user_ids',
 ]
 
 ######################### CSRF #########################################
@@ -3845,7 +3853,7 @@ BLOCKSTORE_API_URL = 'http://localhost:18250/api/v1/'
 XBLOCK_RUNTIME_V2_EPHEMERAL_DATA_CACHE = 'default'
 
 ########################## LEARNER PORTAL ##############################
-LEARNER_PORTAL_URL_ROOT = 'https://learner-portal-localhost:18000'
+LEARNER_PORTAL_URL_ROOT = 'http://localhost:8734'
 
 ######################### MICROSITE ###############################
 MICROSITE_ROOT_DIR = '/edx/app/edxapp/edx-microsite'
