@@ -74,9 +74,11 @@ class CourseOutlineView(APIView):
     Display all CourseOutline information for a given user.
     """
 
-    class CourseOutlineDataSerializer(BaseSerializer):
+    class UserCourseOutlineDataSerializer(BaseSerializer):
         """Read-only serializer for CourseOutlineData for this endpoint."""
-        def to_representation(self, course_outline_data):
+        def to_representation(self, user_course_outline_data):
+            course_outline_data = user_course_outline_data.outline
+            schedule = user_course_outline_data.schedule
             return {
                 "course_key": str(course_outline_data.course_key),
                 "title": course_outline_data.title,
@@ -96,10 +98,11 @@ class CourseOutlineView(APIView):
                     }
                     for section in course_outline_data.sections
                 ],
+                "schedule": schedule,
             }
 
     def get(self, request, course_key_str, format=None):
         course_key = CourseKey.from_string(course_key_str)
         course_outline_data = get_course_outline_for_user(course_key, request.user)
-        serializer = self.CourseOutlineDataSerializer(course_outline_data)
+        serializer = self.UserCourseOutlineDataSerializer(course_outline_data)
         return Response(serializer.data)

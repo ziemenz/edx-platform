@@ -25,8 +25,11 @@ def ls_listen_for_course_publish(sender, course_key, **kwargs):
 log = logging.getLogger(__name__)
 
 
-# @task()
+# @task() # temporarily running this inline for easier debugging.
 def update_from_modulestore(course_key):
+    """
+    All of this logic should be moved to api.py
+    """
     # Do the expensive modulestore access before starting a transaction...
     store = modulestore()
     sections = []

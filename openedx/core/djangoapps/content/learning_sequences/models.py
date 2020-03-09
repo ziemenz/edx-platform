@@ -110,4 +110,7 @@ class CourseOutline(TimeStampedModel):
     # relationships in one place. We DON'T want to put that knowledge in the
     # LearningSequence model directly, because in the long run, we want to allow
     # Sequences that live outside of Courses as they exist today.
+    #
+    # Sigh, maybe I should just give up and make a CourseSection model instead
+    # of explaining this. Yeah, that makes more sense...
     outline_data = models.TextField()

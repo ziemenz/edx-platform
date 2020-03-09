@@ -35,6 +35,7 @@ class CourseOutlineData:
     published_version = attr.ib()
 
     sections = attr.ib(type=List[CourseSectionData])
+    sequence_set = attr.ib(type=frozenset)
 
     class DoesNotExist(Exception):
         pass
@@ -43,15 +44,25 @@ class CourseOutlineData:
 class UserCourseOutlineData:
     outline = attr.ib(type=CourseOutlineData)
     user = attr.ib(type=User)
+
+
+    schedule = attr.ib()  # Make a real type later?
     # how to handle per-system metadata?
 
 
 def get_course_outline_for_user(course_key, user):
 
     s = ScheduleOutlineProcessor()
-    s.load_data_for_course(course_key, request.user)
+    s.load_data_for_course(course_key, user)
 
-    return get_course_outline_data(course_key)
+    full_course_outline = get_course_outline_data(course_key)
+    user_course_outline = UserCourseOutlineData(
+        outline=full_course_outline,  # hasn't been transformed yet, should.
+        user=user,
+        schedule=s.data_to_add(full_course_outline),
+    )
+    return user_course_outline
+
 
 
 def get_course_outline_data(course_key):
@@ -72,7 +83,12 @@ def get_course_outline_data(course_key):
 
 
 def _create_course_outline_data(learning_context):
+    """
+    All this mucking in JSON is actually pretty cumbersome.
+    """
     outline_skeleton = json.loads(learning_context.course_outline.outline_data)
+    sequence_set = set(seq.usage_key for seq in learning_context.sequences.all())
+
     return CourseOutlineData(
         course_key=learning_context.context_key,
         title=learning_context.title,
@@ -91,8 +107,10 @@ def _create_course_outline_data(learning_context):
                 ]
             )
             for section in outline_skeleton['sections']
-        ]
+        ],
+        sequence_set=frozenset(sequence_set)
     )
+
 
 def create_course_outline(outline):
     pass
@@ -103,12 +121,22 @@ from edx_when.api import get_dates_for_course
 class ScheduleOutlineProcessor:
 
     def load_data_for_course(self, course_key, user):
-        dates_for_course = get_dates_for_course(course_key, user)
-        print(dates_for_course)
+        self.dates = get_dates_for_course(course_key, user)
 
-    def hide_set(self, course_outline):
+    def sequence_keys_to_hide(self, course_outline):
         # Return a set/frozenset of usage keys to hide
         pass
+
+    def data_to_add(self, course_outline):
+        """"
+        (BlockUsageLocator(CourseLocator('DaveX', 'CTL.SC0x', '3T2019', None, None), 'sequential', '93efff307c9d4135865e25077eff57c0'), 'due'): datetime.datetime(2019, 12, 11, 15, 0, tzinfo=<UTC>)
+        """
+        return {
+            str(usage_key): {'due': date}
+            for (usage_key, field_name), date in self.dates.items()
+            if (usage_key.block_type == 'sequential') # and (usage_key in course_outline.sequence_set)
+        }
+
 
     #def disable_set(self, course_outline):
     #    # ???
@@ -117,11 +145,14 @@ class ScheduleOutlineProcessor:
 
 def process():
 
+    # Phase 1:
     sequence_keys_to_hide = set()
     for processor in processors:
         sequence_keys_to_hide.update(processor.sequence_keys_to_hide())
 
-    outline_with_hidden_stuff
+    # What is the desired behavior if you have a Chapter with no sequences?
+    # I guess we keep it?
+    outline_with_hidden_stuff = hide_sequences
 
     for processor in processors:
         pass
