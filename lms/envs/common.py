@@ -482,7 +482,7 @@ DATA_DIR = COURSES_ROOT
 
 # TODO: Remove the rest of the sys.path modification here and in cms/envs/common.py
 sys.path.append(REPO_ROOT)
-sys.path.append(PROJECT_ROOT / 'djangoapps')
+sys.path.append(REPO_ROOT / 'import_shim' / 'lms')
 sys.path.append(COMMON_ROOT / 'djangoapps')
 
 # For Node.js
