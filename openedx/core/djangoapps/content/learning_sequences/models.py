@@ -49,13 +49,55 @@ class LearningSequence(TimeStampedModel):
     usage_key = UsageKeyField(max_length=255)
     title = models.CharField(max_length=255)
 
+    # Separate field for when this Sequence's content was last changed?
     class Meta:
         unique_together = (
             ('learning_context', 'usage_key'),
         )
 
 
-class CourseOutline(TimeStampedModel):
+class CourseSection(TimeStampedModel):
+    id = models.BigAutoField(primary_key=True)
+    learning_context = models.ForeignKey(
+        LearningContext, on_delete=models.CASCADE, related_name='sections'
+    )
+    usage_key = UsageKeyField(max_length=255)
+    title = models.CharField(max_length=255)
+    order = models.PositiveIntegerField(null=False)
+
+    class Meta:
+        unique_together = (
+            ('learning_context', 'usage_key'),
+        )
+        index_together = (
+            ('learning_context', 'order'),
+        )
+
+class CourseSectionSequence(TimeStampedModel):
+    """
+    This is a join+ordering table, with entries that could get wiped out and
+    recreated with every course publish. Do NOT make a ForeignKey against this
+    table before implementing smarter replacement logic when publishing happens,
+    or you'll see deletes all the time.
+    """
+    id = models.BigAutoField(primary_key=True)
+    learning_context = models.ForeignKey(
+        LearningContext, on_delete=models.CASCADE, related_name='section_sequences'
+    )
+    section = models.ForeignKey(CourseSection)
+    sequence = models.ForeignKey(LearningSequence)
+    order = models.PositiveIntegerField(null=False)
+
+    class Meta:
+        index_together = (
+            ('learning_context', 'order'),
+        )
+
+
+# Would we want one that stores the last unit you looked at in a sequence?
+
+
+class CourseOutline: #(TimeStampedModel):
     """
     This model represents the hierarchical relationship for every sequence that
     _could_ be in a course. This is just the skeleton of the course, and does
