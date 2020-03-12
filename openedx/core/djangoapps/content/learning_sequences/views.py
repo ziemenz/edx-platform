@@ -65,7 +65,6 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.serializers import BaseSerializer
 
-from .models import CourseOutline, LearningContext, LearningSequence
 from .api import get_course_outline_for_user
 
 
@@ -89,15 +88,18 @@ class CourseOutlineView(APIView):
                         "usage_key": str(section.usage_key),
                         "title": section.title,
                         "sequences": [
-                            {
-                                "usage_key": str(sequence.usage_key),
-                                "title": sequence.title
-                            }
-                            for sequence in section.sequences
+                            str(seq.usage_key) for seq in section.sequences
                         ]
                     }
                     for section in course_outline_data.sections
                 ],
+                "sequences": {
+                    str(usage_key): {
+                        "usage_key": str(usage_key),
+                        "title": seq_data.title,
+                    }
+                    for usage_key, seq_data in course_outline_data.sequences.items()
+                },
                 "schedule": schedule,
             }
 

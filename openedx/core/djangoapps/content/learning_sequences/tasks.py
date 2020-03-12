@@ -1,6 +1,7 @@
 import json
 import logging
 import pprint
+from collections import OrderedDict
 
 from celery.task import task
 from django.db import transaction
@@ -10,13 +11,11 @@ from xmodule.modulestore import ModuleStoreEnum
 from xmodule.modulestore.django import modulestore, SignalHandler
 
 from .api import (
-    create_course_outline,
     replace_course_outline,
     CourseOutlineData,
     CourseSectionData,
     LearningSequenceData,
 )
-from .models import CourseOutline, LearningContext, LearningSequence
 
 @receiver(SignalHandler.course_published)
 def ls_listen_for_course_publish(sender, course_key, **kwargs):
@@ -35,7 +34,8 @@ log = logging.getLogger(__name__)
 
 def update_from_modulestore(course_key):
     """
-    All of this logic should be moved to api.py
+    Should this live in another system as a post-publish hook to push data to
+    the LMS?
     """
     def _make_section_data(section):
         return CourseSectionData(
@@ -56,9 +56,10 @@ def update_from_modulestore(course_key):
     with store.branch_setting(ModuleStoreEnum.Branch.published_only, course_key):
         course = store.get_course(course_key, depth=2)
         sections_data = [_make_section_data(section) for section in course.get_children()]
-        all_seq_keys = []
+        sequences = OrderedDict()
         for section_data in sections_data:
-            all_seq_keys.extend([seq.usage_key for seq in section_data.sequences])
+            for seq_data in section_data.sequences:
+                sequences[seq_data.usage_key] = seq_data
 
         course_outline_data = CourseOutlineData(
             course_key=course_key,
@@ -66,10 +67,7 @@ def update_from_modulestore(course_key):
             published_at=course.subtree_edited_on,
             published_version=str(course.course_version),  # .course_version is a BSON obj
             sections=sections_data,
-            sequence_set=frozenset(all_seq_keys),
+            sequences=sequences,
         )
 
     replace_course_outline(course_outline_data)
-
-
-

@@ -36,16 +36,17 @@ class LearningSequence(TimeStampedModel):
     particular context. (Folks who are aware of the origin of "usage_key" may
     find this bitterly ironic.)
 
-    You'd think that title belongs with the usage and not in "usage in a certain
-    context", but we have a suprising number of use cases that want to override
-    all sorts of things. The only things safely out of bounds are the raw
-    content of things HTMLBlocks. Almost everything else (grading policy,
-    due dates, etc.) already exists within the context of the course.
+    The reason why this model doesn't have a direct foreign key to CourseSection
+    is because we eventually want to have LearningSequences that exist outside
+    of courses. All Course-specific data lives in the CourseSection and
+    CourseSectionSequence models.
     """
     id = models.BigAutoField(primary_key=True)
     learning_context = models.ForeignKey(
         LearningContext, on_delete=models.CASCADE, related_name='sequences'
     )
+    # Do we really want "usage_key" terminology? Too abstract/awkward to use
+    # something more generic?
     usage_key = UsageKeyField(max_length=255)
     title = models.CharField(max_length=255)
 
@@ -95,64 +96,3 @@ class CourseSectionSequence(TimeStampedModel):
 
 
 # Would we want one that stores the last unit you looked at in a sequence?
-
-
-class CourseOutline: #(TimeStampedModel):
-    """
-    This model represents the hierarchical relationship for every sequence that
-    _could_ be in a course. This is just the skeleton of the course, and does
-    not include metadata that could be user specific (e.g. schedules, progress,
-    etc.). The expectation would be that all sequence level metadata would be
-    read from separate models. This only has data that is extremely specific to
-    a course: namely the Sections (a.k.a. Chapters) and what sequences they
-    contain. Other metadata is better associated with the sequences themselves
-    in different models.
-    """
-    id = models.BigAutoField(primary_key=True)
-    learning_context = models.OneToOneField(
-        LearningContext, on_delete=models.CASCADE, related_name='course_outline'
-    )
-    schema_version = models.IntegerField(null=False)
-
-    # `outline` could be a JSONField, but those are implemented in database-
-    # specific ways at the moment. And we don't need deep querying capability
-    # today.
-    #
-    # Format for the outline is:
-    #
-    # {
-    #   "version": 1,
-    #   "sections": [
-    #     {
-    #       "title": "Introduction",
-    #       "usage_key": "block-v1:edX+DemoX+1T2020+type@chapter+block@Introduction",
-    #       "sequences": [
-    #         "block-v1:edX+DemoX+1T2020+type@sequential+block@welcome",
-    #         "block-v1:edX+DemoX+1T2020+type@sequential+block@intro"
-    #       ]
-    #     }
-    #   ]
-    # }
-    #
-    # OEP-38 discourages JSON blobs like this, but we do it because:
-    #
-    # 1. For course navigation we almost always want to grab the entire course's
-    #    outline at once.
-    # 2. Sections are rarely analyzed on their own and are mostly navigational
-    #    conveniences of the Course. Sequences (subsections) are first class
-    #    entities with their own data models.
-    # 3. Modeling nested, ordered parent-child relationships is more cumbersome
-    #    in the database, and retrieving it efficiently is more awkward in the
-    #    Django ORM.
-    # 4. Updates happen infrequently (during course publish), and we want to
-    #    rewrite the whole structure at once.
-    #
-    # If we need to put more metadata in Sections, it might spin out to its own
-    # model, though we'll probably still want to keep all the parent/child
-    # relationships in one place. We DON'T want to put that knowledge in the
-    # LearningSequence model directly, because in the long run, we want to allow
-    # Sequences that live outside of Courses as they exist today.
-    #
-    # Sigh, maybe I should just give up and make a CourseSection model instead
-    # of explaining this. Yeah, that makes more sense...
-    outline_data = models.TextField()
