@@ -1,5 +1,6 @@
 import logging
-from typing import Dict, List #, OrderedDict
+from datetime import datetime
+from typing import Dict, List, Optional #, OrderedDict
 
 import attr
 from django.contrib.auth import get_user_model
@@ -30,14 +31,19 @@ class CourseOutlineData:
     published_at = attr.ib()
     published_version = attr.ib()
     sections = attr.ib(type=List[CourseSectionData])
-    sequences = attr.ib() # (type=OrderedDict[UsageKey, LearningSequenceData])
+    sequences = attr.ib(Dict[UsageKey, LearningSequenceData])
 
-    class DoesNotExist(Exception):
-        pass
+
+@attr.s(frozen=True)
+class ScheduleItemData:
+    usage_key = attr.ib(type=UsageKey)
+    start = attr.ib(type=Optional[datetime])
+    due = attr.ib(type=Optional[datetime])
+
 
 @attr.s(frozen=True)
 class UserCourseOutlineData:
     outline = attr.ib(type=CourseOutlineData)
     user = attr.ib(type=User)
-    schedule = attr.ib()  # Make a real type later?
-    # how to handle per-system metadata?
+    schedule = attr.ib(type=Dict[UsageKey, ScheduleItemData])
+

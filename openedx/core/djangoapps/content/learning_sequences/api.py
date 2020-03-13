@@ -21,7 +21,7 @@ from .processors import ScheduleOutlineProcessor
 log = logging.getLogger(__name__)
 
 
-def get_course_outline_for_user(course_key, user):
+def get_course_outline_for_user(course_key, user) -> UserCourseOutlineData:
 
     s = ScheduleOutlineProcessor()
     s.load_data_for_course(course_key, user)
@@ -35,7 +35,7 @@ def get_course_outline_for_user(course_key, user):
     return user_course_outline
 
 
-def get_course_outline(course_key):
+def get_course_outline(course_key) -> CourseOutlineData:
     # Need better error handling
     if course_key.deprecated:
         raise ValueError(

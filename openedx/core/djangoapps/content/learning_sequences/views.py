@@ -76,6 +76,11 @@ class CourseOutlineView(APIView):
     class UserCourseOutlineDataSerializer(BaseSerializer):
         """Read-only serializer for CourseOutlineData for this endpoint."""
         def to_representation(self, user_course_outline_data):
+            """
+            Convert to something DRF knows how to serialize (so no custom types)
+
+            This is intentionally dumb and verbose.
+            """
             course_outline_data = user_course_outline_data.outline
             schedule = user_course_outline_data.schedule
             return {
@@ -100,7 +105,14 @@ class CourseOutlineView(APIView):
                     }
                     for usage_key, seq_data in course_outline_data.sequences.items()
                 },
-                "schedule": schedule,
+                "schedule": {
+                    str(sched_item_data.usage_key): {
+                        "usage_key": str(sched_item_data.usage_key),
+                        "start": sched_item_data.start,  # can be None
+                        "due": sched_item_data.due,      # can be None
+                    }
+                    for sched_item_data in schedule.values()
+                },
             }
 
     def get(self, request, course_key_str, format=None):

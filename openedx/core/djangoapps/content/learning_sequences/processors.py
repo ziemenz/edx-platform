@@ -10,6 +10,7 @@ from collections import defaultdict
 
 from edx_when.api import get_dates_for_course
 
+from .data import ScheduleItemData
 
 class ScheduleOutlineProcessor:
 
@@ -27,10 +28,20 @@ class ScheduleOutlineProcessor:
 
         Does it really need the whole course_outline, or just a set of remaining sequence usage_keys?
         """
-        schedule = defaultdict(dict)
+        keys_to_schedule_fields = defaultdict(dict)
         for (usage_key, field_name), date in self.dates.items():
             if (usage_key.block_type == 'sequential') and (usage_key in course_outline.sequences):
-                schedule[usage_key][field_name] = date
+                keys_to_schedule_fields[usage_key][field_name] = date
+        return {
+            usage_key: ScheduleItemData(
+                usage_key=usage_key,
+                start=fields.get('start'),
+                due=fields.get('due'),
+            )
+            for usage_key, fields in keys_to_schedule_fields.items()
+        }
+
+
 
     #def disable_set(self, course_outline):
     #    # ???
