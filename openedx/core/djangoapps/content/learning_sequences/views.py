@@ -1,59 +1,5 @@
 """
-Views that we need:
 
-# Metadata API?
-/sequence/{}/slug  # Usage Key based? Learning Context + Slug, fallback to usage
-                   # key?
-
-
-    slug = models.SlugField(
-        max_length=255, allow_unicode=True, db_index=True, null=True, blank=False
-    )
-
-                               ('learning_context', 'slug'),
-
-
-/course_outline/{}  # CourseOutline
-
-
-
-{
-  "course_key": {},
-  "title": {},
-  "published_at": {},
-  "published_version": {},
-
-  # The outline is central data in the learning_sequence data
-  "outline": {
-    "sections": [
-      {
-        "title": "Introduction",
-        "usage_key": "block-v1:edX+DemoX+1T2020+type@chapter+block@Introduction",
-        "sequences": [
-          "block-v1:edX+DemoX+1T2020+type@sequential+block@welcome",
-          "block-v1:edX+DemoX+1T2020+type@sequential+block@intro"
-        ]
-      }
-    ]
-  }
-  "metadata": {
-    # These often only apply to a small subset of sequences...
-    "scheduling": {
-      "assignments": {
-        "block-v1:edX+DemoX+1T2020+type@sequential+block@intro": {
-          "type": "Homework",
-          "due": <ISO date>
-        }
-      }
-    },
-    "prereqs": {
-
-    },
-    "opencraft-estimate": {
-
-    }
-  }
-}
 
 """
 import json
@@ -79,7 +25,8 @@ class CourseOutlineView(APIView):
             """
             Convert to something DRF knows how to serialize (so no custom types)
 
-            This is intentionally dumb and verbose.
+            This is intentionally dumb and lists out every field to make API
+            additions/changes more obvious.
             """
             course_outline_data = user_course_outline_data.outline
             schedule = user_course_outline_data.schedule
@@ -106,13 +53,23 @@ class CourseOutlineView(APIView):
                     for usage_key, seq_data in course_outline_data.sequences.items()
                 },
                 "schedule": {
-                    str(sched_item_data.usage_key): {
-                        "usage_key": str(sched_item_data.usage_key),
-                        "start": sched_item_data.start,  # can be None
-                        "due": sched_item_data.due,      # can be None
+                    "sequences": {
+                        str(sched_item_data.usage_key): {
+                            "usage_key": str(sched_item_data.usage_key),
+                            "start": sched_item_data.start,  # can be None
+                            "due": sched_item_data.due,      # can be None
+                        }
+                        for sched_item_data in schedule.sequences.values()
                     }
-                    for sched_item_data in schedule.values()
                 },
+                "visibility": {
+                    "hide_from_toc": [
+                        str(usage_key) for usage_key in course_outline_data.visibility.hide_from_toc
+                    ],
+                    "visible_to_staff_only": [
+                        str(usage_key) for usage_key in course_outline_data.visibility.visible_to_staff_only
+                    ],
+                }
             }
 
     def get(self, request, course_key_str, format=None):

@@ -1,0 +1,58 @@
+Extensions to Inter-app API Conventions
+=======================================
+
+Status
+------
+
+Draft
+
+
+Context
+-------
+
+In order to improve the maintainability and stability of our applications, we
+introduced edx-platform/docs/decisions/0002-inter-app-apis.rst, which outlines
+the use of package level api.py files to provide single-points of entry to the
+app's functionality.
+
+This ADR seeks to add further conventions to help address issues that have come
+up in our usage over the years. Namely:
+
+* It is difficult to determine exactly what is being returned by inter-app APIs.
+* It is difficult to know exactly what valid inputs to inter-app APIs are.
+* It is difficult to tell when we break compatibility in an inter-app API.
+
+If we find that this ADR's additional conventions are helpful, we can add them
+to the existing set of Inter-app APIs defined at the top level of edx-platform.
+
+
+Decision
+--------
+
+#. All API data structures will be declared as immutable attrs classes in a
+separate `data.py` file. All data class attributes will have type annotations.
+
+#. Data structures in `data.py` will include basic validation of their inputs,
+though this will *not* include validation that requires database access.
+
+#. All public inter-app API functions will use type annotations for arguments
+and return values.
+
+#. All public inter-app API functions will be exported in the top level `api`
+package. Other applications will only ever import from this top level package.
+
+#. Views, tasks, and any other parts of the learning_sequences app that are not
+in the api package will obey the same rules that external apps would follow.
+This means that views for learning_sequences will only import from api and will
+not directly import from models.
+
+#. Wherever possible, API-level tests will be written without mocking internals,
+with the goal that API-level tests *only* break when there are in fact API
+changes.
+
+
+Consequences
+------------
+
+#. It will be easier for other applications to access learning_sequence
+functionality in a more easily understood and maintainable way.

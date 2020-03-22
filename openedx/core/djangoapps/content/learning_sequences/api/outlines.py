@@ -1,41 +1,31 @@
-"""
-
-"""
-import attr
-import json
 import logging
-from collections import defaultdict, OrderedDict
+from collections import defaultdict
 
+from django.contrib.auth import get_user_model
 from django.db import transaction
-from opaque_keys import OpaqueKey
 from opaque_keys.edx.keys import CourseKey, UsageKey
 
 from .data import (
-    CourseOutlineData, CourseSectionData, LearningSequenceData, UserCourseOutlineData,
+    CourseItemVisibilityData, CourseOutlineData, CourseSectionData,
+    LearningSequenceData, UserCourseOutlineData
 )
-from .models import (
-    CourseSection, CourseSectionSequence, LearningContext, LearningSequence,
+from ..models import (
+    CourseSection, CourseSectionSequence, LearningContext, LearningSequence
 )
 from .processors import ScheduleOutlineProcessor
 
+User = get_user_model()
 log = logging.getLogger(__name__)
 
-
-def get_course_outline_for_user(course_key, user) -> UserCourseOutlineData:
-
-    s = ScheduleOutlineProcessor()
-    s.load_data_for_course(course_key, user)
-
-    full_course_outline = get_course_outline(course_key)
-    user_course_outline = UserCourseOutlineData(
-        outline=full_course_outline,  # hasn't been transformed yet, should.
-        user=user,
-        schedule=s.data_to_add(full_course_outline),
-    )
-    return user_course_outline
+# Public API...
+__all__ = [
+    'get_course_outline',
+    'get_course_outline_for_user',
+    'replace_course_outline',
+]
 
 
-def get_course_outline(course_key) -> CourseOutlineData:
+def get_course_outline(course_key: CourseKey) -> CourseOutlineData:
     # Need better error handling
     if course_key.deprecated:
         raise ValueError(
@@ -56,6 +46,9 @@ def get_course_outline(course_key) -> CourseOutlineData:
     # pull the sections separately to accurately represent empty sections.
     sec_ids_to_sequence_list = defaultdict(list)
     seq_keys_to_sequence = {}
+    hide_from_toc_set = set()
+    visible_to_staff_only_set = set()
+
     for sec_seq_model in section_sequence_models:
         sequence_model = sec_seq_model.sequence
         sequence_data = LearningSequenceData(
@@ -64,25 +57,59 @@ def get_course_outline(course_key) -> CourseOutlineData:
         )
         seq_keys_to_sequence[sequence_data.usage_key] = sequence_data
         sec_ids_to_sequence_list[sec_seq_model.section_id].append(sequence_data)
+        if sec_seq_model.hide_from_toc:
+            hide_from_toc_set.add(sequence_data.usage_key)
+        if sec_seq_model.visible_to_staff_only:
+            visible_to_staff_only_set.add(sequence_data.usage_key)
+
+    sections_data = []
+    for section_model in section_models:
+        sections_data.append(
+            CourseSectionData(
+                usage_key=section_model.usage_key,
+                title=section_model.title,
+                sequences=sec_ids_to_sequence_list[section_model.id]
+            )
+        )
+        if section_model.hide_from_toc:
+            hide_from_toc_set.add(section_model.usage_key)
+        if section_model.visible_to_staff_only:
+            visible_to_staff_only_set.add(section_model.usage_key)
 
     return CourseOutlineData(
         course_key=learning_context.context_key,
         title=learning_context.title,
         published_at=learning_context.published_at,
         published_version=learning_context.published_version,
-        sections=[
-            CourseSectionData(
-                usage_key=section_model.usage_key,
-                title=section_model.title,
-                sequences=sec_ids_to_sequence_list[section_model.id]
-            )
-            for section_model in section_models
-        ],
+        sections=sections_data,
         sequences=seq_keys_to_sequence,
+        visibility=CourseItemVisibilityData(
+            hide_from_toc=frozenset(hide_from_toc_set),
+            visible_to_staff_only=frozenset(visible_to_staff_only_set),
+        )
     )
 
 
-def replace_course_outline(course_outline):
+def get_course_outline_for_user(course_key: CourseKey, user: User) -> UserCourseOutlineData:
+    """
+    We shouldn't force people to have all this supplementary information if they
+    don't want it. Separate a) the processors; b) cutting away inaccessible
+    content vs. adding supplementary information.
+    """
+    s = ScheduleOutlineProcessor()
+    s.load_data_for_course(course_key, user)
+
+    full_course_outline = get_course_outline(course_key)
+    user_course_outline = UserCourseOutlineData(
+        outline=full_course_outline,  # hasn't been transformed yet, should.
+        user=user,
+        schedule=s.data_to_add(full_course_outline),
+    )
+    return user_course_outline
+
+
+
+def replace_course_outline(course_outline: CourseOutlineData):
     """
     Replace the model data stored for the Course Outline with the contents of
     course_outline (a CourseOutlineData).
@@ -91,6 +118,7 @@ def replace_course_outline(course_outline):
     """
     course_key = course_outline.course_key
     log.info("Generating CourseOutline for %s", course_key)
+    log.info("CourseOutline: %s", course_outline)
     if course_key.deprecated:
         raise ValueError("CourseOutline generation not supported for Old Mongo courses")
 
@@ -107,7 +135,7 @@ def replace_course_outline(course_outline):
         _update_course_section_sequences(course_outline, learning_context)
 
 
-def _update_learning_context(course_outline):
+def _update_learning_context(course_outline: CourseOutlineData):
     learning_context, created = LearningContext.objects.update_or_create(
         context_key=course_outline.course_key,
         defaults={
@@ -124,15 +152,20 @@ def _update_learning_context(course_outline):
     return learning_context
 
 
-def _update_sections(course_outline, learning_context):
+def _update_sections(course_outline: CourseOutlineData, learning_context: LearningContext):
     # Add/update relevant sections...
     for order, section_data in enumerate(course_outline.sections):
+        hide_from_toc = section_data.usage_key in course_outline.visibility.hide_from_toc
+        visible_to_staff_only = section_data.usage_key in course_outline.visibility.visible_to_staff_only
+
         CourseSection.objects.update_or_create(
             learning_context=learning_context,
             usage_key=section_data.usage_key,
             defaults={
                 'title': section_data.title,
                 'order': order,
+                'hide_from_toc': hide_from_toc,
+                'visible_to_staff_only': visible_to_staff_only,
             }
         )
     # Delete sections that we don't want any more
@@ -145,7 +178,7 @@ def _update_sections(course_outline, learning_context):
         .delete()
 
 
-def _update_sequences(course_outline, learning_context):
+def _update_sequences(course_outline: CourseOutlineData, learning_context: LearningContext):
     for section_data in course_outline.sections:
         for sequence_data in section_data.sequences:
             LearningSequence.objects.update_or_create(
@@ -159,7 +192,7 @@ def _update_sequences(course_outline, learning_context):
         .delete()
 
 
-def _update_course_section_sequences(course_outline, learning_context):
+def _update_course_section_sequences(course_outline: CourseOutlineData, learning_context: LearningContext):
     section_models = {
         section_model.usage_key: section_model
         for section_model
@@ -173,25 +206,15 @@ def _update_course_section_sequences(course_outline, learning_context):
 
     for order, section_data in enumerate(course_outline.sections):
         for sequence_data in section_data.sequences:
+            hide_from_toc = sequence_data.usage_key in course_outline.visibility.hide_from_toc
+            visible_to_staff_only = sequence_data.usage_key in course_outline.visibility.visible_to_staff_only
             CourseSectionSequence.objects.update_or_create(
                 learning_context=learning_context,
                 section=section_models[section_data.usage_key],
                 sequence=sequence_models[sequence_data.usage_key],
-                defaults={'order': order},
+                defaults={
+                    'order': order,
+                    'hide_from_toc': hide_from_toc,
+                    'visible_to_staff_only': visible_to_staff_only,
+                },
             )
-
-########## Scratch Notes...
-
-def process():
-
-    # Phase 1:
-    sequence_keys_to_hide = set()
-    for processor in processors:
-        sequence_keys_to_hide.update(processor.sequence_keys_to_hide())
-
-    # What is the desired behavior if you have a Chapter with no sequences?
-    # I guess we keep it?
-    outline_with_hidden_stuff = hide_sequences
-
-    for processor in processors:
-        pass
