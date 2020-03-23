@@ -21,6 +21,8 @@ up in our usage over the years. Namely:
 * It is difficult to determine exactly what is being returned by inter-app APIs.
 * It is difficult to know exactly what valid inputs to inter-app APIs are.
 * It is difficult to tell when we break compatibility in an inter-app API.
+* Critical functionality (exercised via views) is sometimes missing from the
+  inter-app API, or behaves differently from its REST counterpart.
 
 If we find that this ADR's additional conventions are helpful, we can add them
 to the existing set of Inter-app APIs defined at the top level of edx-platform.
@@ -47,8 +49,8 @@ This means that views for learning_sequences will only import from api and will
 not directly import from models.
 
 #. Wherever possible, API-level tests will be written without mocking internals,
-with the goal that API-level tests *only* break when there are in fact API
-changes.
+or prepping the database with model manipulations. The goal of this is to make
+it so that that API-level tests *only* break when there are in fact API changes.
 
 
 Consequences
@@ -56,3 +58,8 @@ Consequences
 
 #. It will be easier for other applications to access learning_sequence
 functionality in a more easily understood and maintainable way.
+
+#. It will be easier to build and maintain plugin code that depends on this
+application.
+
+#. Changes that break backwards compatibility will be more obvious.
