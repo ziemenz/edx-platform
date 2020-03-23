@@ -62,11 +62,6 @@ class CourseOutlineData:
     # operational issues or bugs that prevent the processing of certain courses.
     published_at = attr.ib(type=datetime)
 
-    @published_at.validator
-    def enforce_utc(self, attribute, value):
-        if value.tzinfo != timezone.utc:
-            raise ValueError("published_at must be in UTC time (tzinfo=timezone.utc)")
-
     # String representation of the version information for a course. There is no
     # guarantee as to what this value is (e.g. a serialization of a BSON
     # ObjectID, a base64 encoding of a BLAKE2 hash, etc.). The only guarantee is
