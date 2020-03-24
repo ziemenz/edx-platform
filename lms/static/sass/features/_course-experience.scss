@@ -201,6 +201,19 @@
       border-color: transparent;
     }
   }
+
+  //.welcome-message-content {
+  //  display: -webkit-box;
+  //  -webkit-line-clamp: 5;
+  //  -webkit-box-orient: vertical;
+  //}
+
+  .welcome-message-show-more {
+    float: right;
+    background-color: transparent;
+    color: $black;
+    cursor: pointer;
+  }
 }
 
 // Course sidebar
@@ -406,7 +419,7 @@
 
 #expand-collapse-outline-all-button {
   float: right;
-  background-color: $white;
+  background-color: transparent;
   color: $black;
   cursor: pointer;
 }

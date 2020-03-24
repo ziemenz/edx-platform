@@ -1,5 +1,6 @@
 /* globals $ */
 import 'jquery.cookie';
+import { clampHtmlByWords } from 'common/js/utils/clamp-html';
 
 export class WelcomeMessage {  // eslint-disable-line import/prefer-default-export
 
@@ -11,7 +12,7 @@ export class WelcomeMessage {  // eslint-disable-line import/prefer-default-expo
         'X-CSRFToken': $.cookie('csrftoken'),
       },
       success: () => {
-        $('.welcome-message').hide();
+        $('.welcsavepointome-message').hide();
       },
     });
   }
@@ -35,5 +36,27 @@ export class WelcomeMessage {  // eslint-disable-line import/prefer-default-expo
       }
     }
     $('.dismiss-message button').click(() => WelcomeMessage.dismissWelcomeMessage(options.dismissUrl));
+
+
+    // "Show More" support for welcome messages (i.e. the update message)
+    const showMoreButton = document.querySelector('#welcome-message-show-more');
+    const shortContent = document.querySelector('#welcome-message-content-short')
+    const messageCopy = shortContent.cloneNode(true);
+    const remaining = clampHtmlByWords(shortContent, 100);
+    console.log("MIKE: remaining", remaining, typeof remaining, remaining < 0);
+    if (remaining < 0) {
+      const longContent = document.querySelector('#welcome-message-content-long');
+      messageCopy.forEach((node) => {
+        longContent.appendChild(node);
+      });
+      console.log("MIKE: removing hidden");
+      showMoreButton.removeAttribute('hidden');
+      showMoreButton.addEventListener('click', (event) => {
+        showMoreButton.setAttribute('hidden', 'true');
+        shortContent.setAttribute('hidden', 'true');
+        longContent.removeAttribute('hidden');
+        event.stopImmediatePropagation();
+      });
+    }
   }
 }
