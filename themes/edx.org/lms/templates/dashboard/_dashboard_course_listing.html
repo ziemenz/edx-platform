@@ -185,6 +185,13 @@ from util.course import get_link_for_about_page, get_encoded_course_sharing_utm_
 
               % else:
                 % if resume_button_url != '':
+                  <%
+                    account_mfe_url = getattr(settings, 'ACCOUNT_MICROFRONTEND_URL', '') or ''
+                    if related_programs and account_mfe_url != '':
+                      for program in related_programs:
+                        if program.get('type') == 'MicroBachelors':
+                          resume_button_url = "%s/coaching_consent?next=%s" % (account_mfe_url, resume_button_url)
+                  %>
                   <a href="${resume_button_url}"
                      class="course-target-link enter-course ${'hidden' if is_unfulfilled_entitlement else ''}"
                      data-course-key="${enrollment.course_id}">
@@ -194,6 +201,13 @@ from util.course import get_link_for_about_page, get_encoded_course_sharing_utm_
                     </span>
                   </a>
                 % elif not is_course_blocked:
+                  <%
+                    account_mfe_url = getattr(settings, 'ACCOUNT_MICROFRONTEND_URL', '') or ''
+                    if related_programs and account_mfe_url != '':
+                      for program in related_programs:
+                        if program.get('type') == 'MicroBachelors':
+                          course_target = "%s/coaching_consent?next=%s" % (account_mfe_url, course_target)
+                  %>
                   <a href="${course_target}"
                      class="course-target-link enter-course ${'hidden' if is_unfulfilled_entitlement else ''}"
                      data-course-key="${enrollment.course_id}">
