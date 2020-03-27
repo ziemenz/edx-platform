@@ -317,6 +317,23 @@ class TeamAPITestCase(APITestCase, SharedModuleStoreTestCase):
                 teams_configuration=teams_configuration_2
             )
 
+            teams_configuration_3 = TeamsConfig({
+                'topics': [
+                    {
+                        'type': teamset_type,
+                        'id': teamset_type,
+                        'name': teamset_type,
+                        'description': teamset_type,
+                    } for teamset_type in ('open', 'private_managed', 'public_managed')
+                ]
+            })
+            cls.test_course_3 = CourseFactory.create(
+                org='MIT',
+                course='5.224',
+                display_name='TeamsetsTypeTests',
+                teams_configuration=teams_configuration_3
+            )
+
     @classmethod
     def setUpTestData(cls):
         super(TeamAPITestCase, cls).setUpTestData()
@@ -327,6 +344,7 @@ class TeamAPITestCase(APITestCase, SharedModuleStoreTestCase):
         }
         cls.create_and_enroll_student(username='student_enrolled')
         cls.create_and_enroll_student(username='student_on_team_1_private_set_1', mode=CourseMode.MASTERS)
+        cls.create_and_enroll_student(username='student_on_team_2_private_set_1', mode=CourseMode.MASTERS)
         cls.create_and_enroll_student(username='student_not_member_of_private_teams', mode=CourseMode.MASTERS)
         cls.create_and_enroll_student(username='student_enrolled_not_on_team')
         cls.create_and_enroll_student(username='student_unenrolled', courses=[])
@@ -364,6 +382,11 @@ class TeamAPITestCase(APITestCase, SharedModuleStoreTestCase):
         cls.create_and_enroll_student(
             courses=[cls.test_course_1, cls.test_course_2],
             username='student_masters',
+            mode=CourseMode.MASTERS
+        )
+        cls.create_and_enroll_student(
+            courses=[cls.test_course_1, cls.test_course_2],
+            username='student_masters_not_on_team',
             mode=CourseMode.MASTERS
         )
 
@@ -464,6 +487,9 @@ class TeamAPITestCase(APITestCase, SharedModuleStoreTestCase):
             cls.search_team,
             cls.chinese_team,
             cls.masters_only_team,
+            cls.team_1_in_private_teamset_1,
+            cls.team_2_in_private_teamset_1,
+            cls.team_1_in_private_teamset_2,
         )}
 
         for user, course in [('staff', cls.test_course_1), ('course_staff', cls.test_course_1)]:
@@ -480,6 +506,7 @@ class TeamAPITestCase(APITestCase, SharedModuleStoreTestCase):
         cls.public_profile_team.add_user(cls.users['student_enrolled_public_profile'])
         cls.masters_only_team.add_user(cls.users['student_masters'])
         cls.team_1_in_private_teamset_1.add_user(cls.users['student_on_team_1_private_set_1'])
+        cls.team_2_in_private_teamset_1.add_user(cls.users['student_on_team_2_private_set_1'])
 
     def build_membership_data_raw(self, username, team):
         """Assembles a membership creation payload based on the raw values provided."""
@@ -791,6 +818,45 @@ class TestListTeamsAPI(EventTestMixin, TeamAPITestCase):
         self.assertEqual(1, len(result['results']))
         self.assertEqual('private_topic_1_id', result['results'][0]['topic_id'])
         self.assertNotEqual([], result['results'])
+
+    @ddt.unpack
+    @ddt.data(
+        ('student_masters_not_on_team', True),
+        ('student_masters', True),
+        ('student_enrolled', False),
+        ('staff', True),
+    )
+    def test_text_search_organization_protected(self, user, can_see_masters_team):
+        self.reset_search_index()
+        result = self.get_teams_list(
+            data={'text_search': 'master'},
+            user=user,
+        )
+        expected_teams = 1 if can_see_masters_team else 0
+        self.assertEqual(result['count'], expected_teams)
+
+    @ddt.unpack
+    @ddt.data(
+        ('student_on_team_1_private_set_1', True, True, True),
+        ('student_on_team_2_private_set_1', True, True, True),
+        ('student_enrolled', False, False, False),
+        ('staff', True, True, True),
+    )
+    def test_text_search_private_teamset(self, user, can_see_private_1_1, can_see_private_1_2, can_see_private_2_1):
+        self.reset_search_index()
+        result = self.get_teams_list(
+            data={'text_search': 'private'},
+            user=user,
+        )
+        teams = {team['name'] for team in result['results']}
+        expected_teams = set()
+        if can_see_private_1_1:
+            expected_teams.add(self.team_1_in_private_teamset_1.name)
+        if can_see_private_1_2:
+            expected_teams.add(self.team_2_in_private_teamset_1.name)
+        if can_see_private_2_1:
+            expected_teams.add(self.team_1_in_private_teamset_2.name)
+        self.assertEqual(expected_teams, teams)
 
     def test_page(self):
         result = self.get_teams_list(200, {'page_size': 1, 'page': 3})
@@ -1117,6 +1183,39 @@ class TestDetailTeamAPI(TeamAPITestCase):
         )
         self.verify_expanded_public_user(result['membership'][0]['user'])
 
+    @ddt.unpack
+    @ddt.data(
+        ('student_enrolled', 200),
+        ('student_masters_not_on_team', 200),
+        ('student_masters', 200),
+        ('staff', 200)
+    )
+    def test_bubble_protection(self, requesting_user, expected_response):
+        team = self.get_team_detail(
+            self.masters_only_team.team_id,
+            expected_response,
+            user=requesting_user
+        )
+        if expected_response == 200:
+            self.assertEqual(team['name'], self.masters_only_team.name)
+
+    @ddt.unpack
+    @ddt.data(
+        ('student_enrolled', 200),
+        ('student_masters', 200),
+        ('student_on_team_1_private_set_1', 200),
+        ('student_on_team_2_private_set_1', 200),
+        ('staff', 200)
+    )
+    def test_teamset_types(self, requesting_user, expected_response):
+        team = self.get_team_detail(
+            self.team_1_in_private_teamset_1.team_id,
+            expected_response,
+            user=requesting_user
+        )
+        if expected_response == 200:
+            self.assertEqual(team['name'], self.team_1_in_private_teamset_1.name)
+
 
 @ddt.ddt
 class TestDeleteTeamAPI(EventTestMixin, TeamAPITestCase):
@@ -1166,6 +1265,34 @@ class TestDeleteTeamAPI(EventTestMixin, TeamAPITestCase):
             user_id=self.users['student_enrolled'].id
         )
         self.assertEqual(CourseTeamMembership.objects.filter(team=self.solar_team).count(), 0)
+
+    @ddt.unpack
+    @ddt.data(
+        ('student_enrolled', 403),
+        ('student_masters_not_on_team', 403),
+        ('student_masters', 403),
+        ('staff', 204)
+    )
+    def test_organization_protection_status(self, requesting_user, expected_status):
+        self.delete_team(
+            self.masters_only_team.team_id,
+            expected_status,
+            user=requesting_user
+        )
+
+    @ddt.unpack
+    @ddt.data(
+        ('student_enrolled', 403),
+        ('student_on_team_1_private_set_1', 403),
+        ('student_on_team_2_private_set_1', 403),
+        ('staff', 204)
+    )
+    def test_teamset_type(self, requesting_user, expected_status):
+        self.delete_team(
+            self.team_1_in_private_teamset_1.team_id,
+            expected_status,
+            user=requesting_user
+        )
 
 
 @ddt.ddt
@@ -1242,6 +1369,40 @@ class TestUpdateTeamAPI(EventTestMixin, TeamAPITestCase):
 
     def test_does_not_exist(self):
         self.patch_team_detail('no_such_team', 404, user='staff')
+
+    @ddt.unpack
+    @ddt.data(
+        ('student_enrolled', 403),
+        ('student_masters_not_on_team', 403),
+        ('student_masters', 403),
+        ('staff', 200)
+    )
+    def test_organization_protection_status(self, requesting_user, expected_status):
+        team = self.patch_team_detail(
+            self.masters_only_team.team_id,
+            expected_status,
+            {'name': 'foo'},
+            user=requesting_user
+        )
+        if expected_status == 200:
+            self.assertEqual(team['name'], 'foo')
+
+    @ddt.unpack
+    @ddt.data(
+        ('student_enrolled', 403),
+        ('student_on_team_1_private_set_1', 403),
+        ('student_on_team_2_private_set_1', 403),
+        ('staff', 200)
+    )
+    def test_teamset_type(self, requesting_user, expected_status):
+        team = self.patch_team_detail(
+            self.team_1_in_private_teamset_1.team_id,
+            expected_status,
+            {'name': 'foo'},
+            user=requesting_user
+        )
+        if expected_status == 200:
+            self.assertEqual(team['name'], 'foo')
 
 
 @ddt.ddt
@@ -1376,6 +1537,24 @@ class TestListTopicsAPI(TeamAPITestCase):
             else:
                 self.assertEqual(topic['team_count'], 0)
 
+    @ddt.unpack
+    @ddt.data(
+        ('student_enrolled', True),
+        ('student_on_team_1_private_set_1', True),
+        ('student_on_team_2_private_set_1', True),
+        ('staff', True)
+    )
+    def test_teamset_type(self, requesting_user, expect_see_private_teamsets):
+        topics = self.get_topics_list(
+            data={'course_id': self.test_course_1.id},
+            user=requesting_user
+        )
+        private_teamsets_returned = [
+            topic['name'] for topic in topics['results'] if topic['type'] == 'private_managed'
+        ]
+        expected_private_teamsets = 2 if expect_see_private_teamsets else 0
+        self.assertEqual(len(private_teamsets_returned), expected_private_teamsets)
+
 
 @ddt.ddt
 class TestDetailTopicAPI(TeamAPITestCase):
@@ -1417,6 +1596,22 @@ class TestDetailTopicAPI(TeamAPITestCase):
         self.assertEqual(topic['team_count'], 1)
         topic = self.get_topic_detail(topic_id='topic_3', course_id=self.test_course_1.id)
         self.assertEqual(topic['team_count'], 0)
+
+    @ddt.unpack
+    @ddt.data(
+        ('student_enrolled', 200, 0),
+        ('student_on_team_1_private_set_1', 200, 2),
+        ('student_on_team_2_private_set_1', 200, 2),
+        ('staff', 200, 2)
+    )
+    def test_teamset_type(self, requesting_user, expected_status, expected_team_count):
+        topic = self.get_topic_detail(
+            topic_id='private_topic_1_id',
+            course_id=self.test_course_1.id,
+            user=requesting_user
+        )
+        if expected_status == 200:
+            self.assertEqual(topic['team_count'], expected_team_count)
 
 
 @ddt.ddt
@@ -1461,6 +1656,65 @@ class TestListMembershipAPI(TeamAPITestCase):
                 self.assertEqual(membership['count'], 0)
 
     @ddt.data(
+        ('student_masters', True),
+        ('student_masters_not_on_team', True),
+        ('student_unenrolled', False),
+        ('student_enrolled', True),
+        ('student_enrolled_both_courses_other_team', True),
+        ('staff', True),
+    )
+    @ddt.unpack
+    def test_access_by_username_organization_protected(self, user, can_see_bubble_team):
+        membership = self.get_membership_list(200, {'username': 'student_masters'}, user=user)
+        if can_see_bubble_team:
+            self.assertEqual(membership['count'], 1)
+            self.assertEqual(membership['results'][0]['team']['team_id'], self.masters_only_team.team_id)
+        else:
+            self.assertEqual(membership['count'], 0)
+
+    @ddt.unpack
+    @ddt.data(
+        ('student_on_team_1_private_set_1', True, True),
+        ('student_unenrolled', False, False),
+        ('student_enrolled', True, True),
+        ('student_on_team_2_private_set_1', True, True),
+        ('student_masters', True, True),
+        ('staff', True, True)
+    )
+    def test_access_by_username_private_teamset(self, user, can_see_any_teams, can_see_private_team):
+        self.masters_only_team.add_user(self.users['student_on_team_1_private_set_1'])
+        memberships = self.get_membership_list(200, {'username': 'student_on_team_1_private_set_1'}, user=user)
+        team_ids = [membership['team']['team_id'] for membership in memberships['results']]
+        if can_see_private_team:
+            self.assertEqual(len(team_ids), 2)
+            self.assertIn(self.team_1_in_private_teamset_1.team_id, team_ids)
+            self.assertIn(self.masters_only_team.team_id, team_ids)
+        elif can_see_any_teams:
+            self.assertEqual(len(team_ids), 1)
+            self.assertIn(self.masters_only_team.team_id, team_ids)
+        else:
+            self.assertEqual(len(team_ids), 0)
+
+    @ddt.unpack
+    @ddt.data(
+        ('student_on_team_1_private_set_1', 200),
+        ('student_unenrolled', 404),
+        ('student_enrolled', 403),
+        ('student_on_team_2_private_set_1', 403),
+        ('student_masters', 403),
+        ('staff', 200)
+    )
+    def test_access_by_team_private_teamset(self, user, expected_response):
+        memberships = self.get_membership_list(
+            expected_response,
+            {'team_id': self.team_1_in_private_teamset_1.team_id},
+            user=user
+        )
+        if expected_response == 200:
+            users = [membership['user']['username'] for membership in memberships['results']]
+            self.assertEqual(users, ['student_on_team_1_private_set_1'])
+
+    @ddt.data(
         ('student_enrolled_both_courses_other_team', 'TestX/TS101/Test_Course', 200, 'Nuclear Team'),
         ('student_enrolled_both_courses_other_team', 'MIT/6.002x/Circuits', 200, 'Another Team'),
         ('student_enrolled', 'TestX/TS101/Test_Course', 200, u'Sólar team'),
@@ -1490,6 +1744,10 @@ class TestListMembershipAPI(TeamAPITestCase):
         if status == 200:
             self.assertEqual(membership['count'], 1)
             self.assertEqual(membership['results'][0]['team']['team_id'], self.solar_team.team_id)
+
+    def test_nonexistent_user(self):
+        response = self.get_membership_list(200, {'username': 'this-user-will-not-exist-&&&&#!^'})
+        self.assertEqual(response['count'], 0)
 
     def test_bad_course_id(self):
         self.get_membership_list(404, {'course_id': 'no_such_course'})
@@ -1656,6 +1914,40 @@ class TestCreateMembershipAPI(EventTestMixin, TeamAPITestCase):
             self.build_membership_data_raw(self.users['student_enrolled_not_on_team'].username, self.solar_team.team_id)
         )
 
+    @ddt.data(
+        ('student_masters', 400, 'is already a member'),
+        ('student_masters_not_on_team', 200, None),
+        ('student_unenrolled', 404, None),
+        ('student_enrolled', 403, None),
+        ('student_enrolled_both_courses_other_team', 403, None),
+        ('staff', 200, None),
+    )
+    @ddt.unpack
+    def test_join_organization_protected_team(self, user, expected_status, expected_message):
+        response = self.post_create_membership(
+            expected_status,
+            self.build_membership_data_raw(self.users[user].username, self.masters_only_team.team_id),
+            user=user
+        )
+        if expected_message:
+            self.assertIn(expected_message, json.loads(response.content.decode('utf-8'))['developer_message'])
+
+    @ddt.unpack
+    @ddt.data(
+        ('student_on_team_1_private_set_1', 403),
+        ('student_unenrolled', 404),
+        ('student_enrolled', 403),
+        ('student_on_team_2_private_set_1', 403),
+        ('student_masters', 403),
+        ('staff', 200)
+    )
+    def test_student_join_private_managed_team(self, user, expected_status):
+        self.post_create_membership(
+            expected_status,
+            self.build_membership_data_raw(self.users[user].username, self.team_1_in_private_teamset_1.team_id),
+            user=user
+        )
+
     @ddt.data('student_enrolled', 'staff', 'course_staff')
     def test_join_twice(self, user):
         response = self.post_create_membership(
@@ -1759,6 +2051,59 @@ class TestDetailMembershipAPI(TeamAPITestCase):
         )
         self.verify_expanded_team(result['team'])
 
+    @ddt.data(
+        ('student_masters', 200),
+        ('student_masters_not_on_team', 200),
+        ('student_unenrolled', 404),
+        ('student_enrolled', 403),
+        ('student_enrolled_both_courses_other_team', 403),
+        ('staff', 200),
+    )
+    @ddt.unpack
+    def test_organization_protected(self, user, expected_status):
+        """ Users should not be able to see memberships for users in a different bubble than them """
+        self.get_membership_detail(
+            self.masters_only_team.team_id,
+            self.users['student_masters'].username,
+            expected_status,
+            user=user
+        )
+
+    @ddt.unpack
+    @ddt.data(
+        ('student_on_team_1_private_set_1', 200),
+        ('student_unenrolled', 404),
+        ('student_enrolled', 403),
+        ('student_on_team_2_private_set_1', 403),
+        ('staff', 200)
+    )
+    def test_private_managed_team(self, user, expected_status):
+        """
+        Users should not be able to see memberships for users in private_managed
+        teams that they are not a member of
+        """
+        self.get_membership_detail(
+            self.team_1_in_private_teamset_1.team_id,
+            self.users['student_on_team_1_private_set_1'].username,
+            expected_status,
+            user=user
+        )
+
+    def test_join_private_managed_teamset(self):
+        self.get_membership_detail(
+            self.team_1_in_private_teamset_1.team_id,
+            self.users['student_on_team_1_private_set_1'].username,
+            403,
+            user='student_masters'
+        )
+        self.team_1_in_private_teamset_1.add_user(self.users['student_masters'])
+        self.get_membership_detail(
+            self.team_1_in_private_teamset_1.team_id,
+            self.users['student_on_team_1_private_set_1'].username,
+            200,
+            user='student_masters'
+        )
+
 
 @ddt.ddt
 class TestDeleteMembershipAPI(EventTestMixin, TeamAPITestCase):
@@ -1824,6 +2169,36 @@ class TestDeleteMembershipAPI(EventTestMixin, TeamAPITestCase):
     def test_student_leave_instructor_managed_team(self, *args):  # pylint: disable=unused-argument
         self.delete_membership(
             self.solar_team.team_id, self.users['student_enrolled'].username, 403, user='student_enrolled')
+
+    @ddt.unpack
+    @ddt.data(
+        ('student_enrolled', 404),
+        ('student_masters_not_on_team', 404),
+        ('student_masters', 204),
+        ('staff', 204)
+    )
+    def test_organization_protection_status(self, user, expected_status):
+        self.delete_membership(
+            self.masters_only_team.team_id,
+            self.users['student_masters'].username,
+            expected_status,
+            user=user
+        )
+
+    @ddt.unpack
+    @ddt.data(
+        ('student_enrolled', 404),
+        ('student_on_team_1_private_set_1', 403),
+        ('student_on_team_2_private_set_1', 404),
+        ('staff', 204)
+    )
+    def test_teamset_type(self, requesting_user, expected_status):
+        self.delete_membership(
+            self.team_1_in_private_teamset_1.team_id,
+            self.users['student_on_team_1_private_set_1'].username,
+            expected_status,
+            user=requesting_user
+        )
 
 
 class TestElasticSearchErrors(TeamAPITestCase):
