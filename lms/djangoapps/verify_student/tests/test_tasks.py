@@ -5,14 +5,7 @@ from django.conf import settings
 from mock import patch
 
 from common.test.utils import MockS3BotoMixin
-from student.tests.factories import UserFactory
-from lms.djangoapps.verify_student.models import SoftwareSecurePhotoVerification
-from verify_student.tests.test_models import (
-    FAKE_SETTINGS,
-    TestVerification,
-
-    mock_software_secure_post_unavailable
-)
+from verify_student.tests.test_models import FAKE_SETTINGS, TestVerification, mock_software_secure_post_unavailable
 from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
 
 LOGGER_NAME = 'lms.djangoapps.verify_student.tasks'

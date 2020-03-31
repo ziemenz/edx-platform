@@ -15,7 +15,6 @@ from freezegun import freeze_time
 from mock import patch
 from six.moves import range
 from student.tests.factories import UserFactory
-from testfixtures import LogCapture
 from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
 
 from common.test.utils import MockS3BotoMixin

@@ -13,8 +13,8 @@ from django.conf import settings
 from django.core.mail import send_mail
 
 from edxmako.shortcuts import render_to_string
-from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 from lms.djangoapps.verify_student.models import SoftwareSecurePhotoVerification
+from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 
 ACE_ROUTING_KEY = getattr(settings, 'ACE_ROUTING_KEY', None)
 SOFTWARE_SECURE_VERIFICATION_ROUTING_KEY = getattr(settings, 'SOFTWARE_SECURE_VERIFICATION_ROUTING_KEY', None)
@@ -112,8 +112,7 @@ def send_request_to_ss_for_user(self, user_verification_id, copy_id_photo_from):
     Returns:
         request.Response
     """
-
-    log.info('=>New Verification Task Received') # todo -- remove before merge.
+    log.info('=>New Verification Task Received')  # todo -- remove before merge.
     user_verification = SoftwareSecurePhotoVerification.objects.get(id=user_verification_id)
     try:
         headers, body = user_verification.create_request(copy_id_photo_from)
