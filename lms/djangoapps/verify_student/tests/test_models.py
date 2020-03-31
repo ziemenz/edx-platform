@@ -209,15 +209,12 @@ class TestPhotoVerification(TestVerification, MockS3BotoMixin, ModuleStoreTestCa
         attempt.upload_photo_id_image("Hey, we're a photo ID")
         attempt.mark_ready()
         attempt.submit()
-        import pdb;pdb.set_trace()
 
         return attempt
 
     def test_submissions(self):
         """Test that we set our status correctly after a submission."""
         # Basic case, things go well.
-        import pdb;
-        pdb.set_trace()
         attempt = self.create_and_submit()
         self.assertEqual(attempt.status, PhotoVerification.STATUS.submitted)
 

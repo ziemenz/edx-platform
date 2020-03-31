@@ -42,7 +42,6 @@ class BaseSoftwareSecureTask(Task):
         user_verification_id = kwargs['user_verification_id']
         user_verification = SoftwareSecurePhotoVerification.objects.get(id=user_verification_id)
         if response.ok:
-            import pdb;pdb.set_trace()
             user_verification.mark_submit()
             TASK_LOG.info(
                 'Sent request to Software Secure for user: %r and receipt ID %r.',
@@ -113,8 +112,7 @@ def send_request_to_ss_for_user(self, user_verification_id, copy_id_photo_from):
     Returns:
         request.Response
     """
-    import pdb;
-    pdb.set_trace()
+
     log.info('=>New Verification Task Received') # todo -- remove before merge.
     user_verification = SoftwareSecurePhotoVerification.objects.get(id=user_verification_id)
     try:

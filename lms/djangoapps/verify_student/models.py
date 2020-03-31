@@ -721,7 +721,6 @@ class SoftwareSecurePhotoVerification(PhotoVerification):
                 are sent with previously-submitted ID photos.
         """
         from .tasks import send_request_to_ss_for_user
-        import pdb;pdb.set_trace()
         if auto_verify_for_testing_enabled():
             self.mark_submit()
             fake_response = requests.Response()
