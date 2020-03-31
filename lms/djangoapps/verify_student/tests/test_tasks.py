@@ -21,17 +21,6 @@ LOGGER_NAME = 'lms.djangoapps.verify_student.tasks'
 @patch.dict(settings.VERIFY_STUDENT, FAKE_SETTINGS)
 @ddt.ddt
 class TestPhotoVerificationTasks(TestVerification, MockS3BotoMixin, ModuleStoreTestCase):
-    def create_and_submit(self):
-        """Helper method to create a generic submission and send it."""
-
-        attempt = SoftwareSecurePhotoVerification(user=self.user)
-        attempt.upload_face_image("Just pretend this is image data")
-        attempt.upload_photo_id_image("Hey, we're a photo ID")
-        attempt.mark_ready()
-        attempt.submit()
-
-        return attempt
-
     @mock.patch('lms.djangoapps.verify_student.tasks.log')
     def test_logs_for_retry_until_failure(self, mock_log):
         retry_max_attempts = settings.SOFTWARE_SECURE_RETRY_MAX_ATTEMPTS

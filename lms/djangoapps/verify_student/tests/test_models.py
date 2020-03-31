@@ -96,6 +96,19 @@ class TestVerification(TestCase):
     Common tests across all types of Verifications (e.g., SoftwareSecurePhotoVerification, SSOVerification)
     """
 
+    def create_and_submit(self):
+        """Helper method to create a generic submission and send it."""
+        user = UserFactory.create()
+        attempt = SoftwareSecurePhotoVerification(user=user)
+        user.profile.name = u"Rust\u01B4"
+
+        attempt.upload_face_image("Just pretend this is image data")
+        attempt.upload_photo_id_image("Hey, we're a photo ID")
+        attempt.mark_ready()
+        attempt.submit()
+
+        return SoftwareSecurePhotoVerification.objects.get(id=attempt.id)
+
     def verification_active_at_datetime(self, attempt):
         """
         Tests to ensure the Verification is active or inactive at the appropriate datetimes.
@@ -198,19 +211,6 @@ class TestPhotoVerification(TestVerification, MockS3BotoMixin, ModuleStoreTestCa
         user.profile.name = u"Rusty \u01B4"
 
         self.assertEqual(u"Clyde \u01B4", attempt.name)
-
-    def create_and_submit(self):
-        """Helper method to create a generic submission and send it."""
-        user = UserFactory.create()
-        attempt = SoftwareSecurePhotoVerification(user=user)
-        user.profile.name = u"Rust\u01B4"
-
-        attempt.upload_face_image("Just pretend this is image data")
-        attempt.upload_photo_id_image("Hey, we're a photo ID")
-        attempt.mark_ready()
-        attempt.submit()
-
-        return attempt
 
     def test_submissions(self):
         """Test that we set our status correctly after a submission."""
