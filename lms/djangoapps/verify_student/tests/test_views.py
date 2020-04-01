@@ -898,7 +898,6 @@ class TestPayAndVerifyView(UrlResetMixin, ModuleStoreTestCase, XssTestMixin):
         if status in ["submitted", "approved", "expired", "denied", "error"]:
             attempt.mark_ready()
             attempt.submit()
-            attempt = SoftwareSecurePhotoVerification.objects.get(id=attempt.id)
 
         if status in ["approved", "expired"]:
             attempt.approve()
@@ -1750,11 +1749,9 @@ class TestPhotoVerificationResultsCallback(ModuleStoreTestCase):
         expiry_date = now() + timedelta(
             days=settings.VERIFY_STUDENT["DAYS_GOOD_FOR"]
         )
-
         verification = SoftwareSecurePhotoVerification.objects.create(user=self.user)
         verification.mark_ready()
         verification.submit()
-        verification = SoftwareSecurePhotoVerification.objects.get(id=verification.id)
         verification.approve()
         verification.expiry_date = now()
         verification.expiry_email_date = now()
@@ -1919,7 +1916,7 @@ class TestReverifyView(TestCase):
         attempt = SoftwareSecurePhotoVerification.objects.create(user=self.user)
         attempt.mark_ready()
         attempt.submit()
-        return SoftwareSecurePhotoVerification.objects.get(id=attempt.id)
+        return attempt
 
     def test_reverify_view_can_do_initial_verification(self):
         """

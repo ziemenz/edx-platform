@@ -94,7 +94,6 @@ class TestVerification(TestCase):
     """
     Common tests across all types of Verifications (e.g., SoftwareSecurePhotoVerification, SSOVerification)
     """
-
     def create_and_submit(self):
         """Helper method to create a generic submission and send it."""
         user = UserFactory.create()
@@ -105,8 +104,7 @@ class TestVerification(TestCase):
         attempt.upload_photo_id_image("Hey, we're a photo ID")
         attempt.mark_ready()
         attempt.submit()
-
-        return SoftwareSecurePhotoVerification.objects.get(id=attempt.id)
+        return attempt
 
     def verification_active_at_datetime(self, attempt):
         """
