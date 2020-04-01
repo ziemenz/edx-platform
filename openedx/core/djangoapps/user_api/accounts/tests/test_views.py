@@ -297,6 +297,7 @@ class TestAccountsAPI(CacheIsolationTestCase, UserAPITestCase):
         self.assertEqual("Park Ave", data['mailing_address'])
         self.assertEqual(requires_parental_consent, data["requires_parental_consent"])
         self.assertIsNone(data["secondary_email"])
+        self.assertIsNone(data["secondary_email_enabled"])
         self.assertEqual(year_of_birth, data["year_of_birth"])
 
     def test_anonymous_access(self):
