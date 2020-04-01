@@ -804,12 +804,12 @@ class TestListTeamsAPI(EventTestMixin, TeamAPITestCase):
 
     @ddt.unpack
     @ddt.data(
-        ('student_masters_not_on_team', True),
-        ('student_masters', True),
-        ('student_enrolled', False),
-        ('staff', True),
+        ('student_masters_not_on_team', 1),
+        ('student_masters', 1),
+        ('student_enrolled', 0),
+        ('staff', 1),
     )
-    def test_text_search_organization_protected(self, user, can_see_masters_team):
+    def test_text_search_organization_protected(self, user, expected_results):
         """
         When doing a text search as different users, will the masters_only team show up?
         Only staff, or people who are within the organization_protected bubble should be
@@ -820,8 +820,7 @@ class TestListTeamsAPI(EventTestMixin, TeamAPITestCase):
             data={'text_search': 'master'},
             user=user,
         )
-        expected_teams = 1 if can_see_masters_team else 0
-        self.assertEqual(result['count'], expected_teams)
+        self.assertEqual(result['count'], expected_results)
 
     @ddt.unpack
     @ddt.data(
@@ -1155,7 +1154,7 @@ class TestCreateTeamAPI(EventTestMixin, TeamAPITestCase):
     def test_private_managed_access(self, user, expected_response, msg):
         """
         As different users, check if we can create a team in a private teamset.
-        Only staff should be able to crate teams in managed teamsets, but they're also
+        Only staff should be able to create teams in managed teamsets, but they're also
         the only ones who should know that private_managed teamsets exist. If the team hasn't been created yet,
         no one can be in it, so no non-staff should get any info at all from this endpoint.
 
@@ -1621,13 +1620,13 @@ class TestListTopicsAPI(TeamAPITestCase):
 
     @ddt.unpack
     @ddt.data(
-        ('student_enrolled', True),
-        ('student_on_team_1_private_set_1', True),
-        ('student_on_team_2_private_set_1', True),
-        ('student_masters', True),
-        ('staff', True)
+        ('student_enrolled', 2),
+        ('student_on_team_1_private_set_1', 2),
+        ('student_on_team_2_private_set_1', 2),
+        ('student_masters', 2),
+        ('staff', 2)
     )
-    def test_teamset_type(self, requesting_user, expect_see_private_teamsets):
+    def test_teamset_type(self, requesting_user, expected_private_teamsets):
         """
         As different users, request course_1's list of topics, and see what private_managed teamsets are returned
 
@@ -1644,7 +1643,6 @@ class TestListTopicsAPI(TeamAPITestCase):
         private_teamsets_returned = [
             topic['name'] for topic in topics['results'] if topic['type'] == 'private_managed'
         ]
-        expected_private_teamsets = 2 if expect_see_private_teamsets else 0
         self.assertEqual(len(private_teamsets_returned), expected_private_teamsets)
 
 
@@ -2371,7 +2369,7 @@ class TestDeleteMembershipAPI(EventTestMixin, TeamAPITestCase):
         ('staff', 'student_on_team_1_private_set_1', 204),
         ('staff', 'staff', 404),
     )
-    def test_teamset_type(self, user, user_to_remove, expected_status):
+    def test_remove_user_from_private_teamset(self, user, user_to_remove, expected_status):
         """
         As different users, attempt to remove themselves or student_on_team_1_private_set_1 from a
         private_managed team.
