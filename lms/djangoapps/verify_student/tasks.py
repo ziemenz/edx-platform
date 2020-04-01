@@ -123,7 +123,7 @@ def send_request_to_ss_for_user(self, user_verification_id, copy_id_photo_from):
             verify=False
         )
         return response
-    except Exception:  # pylint: disable=bare-except
+    except Exception as exc:  # pylint: disable=bare-except
         log.error(
             (
                 'Retrying sending request to Software Secure for user: %r, Receipt ID: %r '
@@ -134,4 +134,5 @@ def send_request_to_ss_for_user(self, user_verification_id, copy_id_photo_from):
             self.request.retries,
             settings.SOFTWARE_SECURE_RETRY_MAX_ATTEMPTS,
         )
+        log.error(str(exc))
         raise self.retry()

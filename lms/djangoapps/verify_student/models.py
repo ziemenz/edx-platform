@@ -25,7 +25,7 @@ from config_models.models import ConfigurationModel
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
-from django.db import models
+from django.db import models, transaction
 from django.urls import reverse
 from django.utils.encoding import python_2_unicode_compatible
 from django.utils.functional import cached_property
@@ -445,17 +445,43 @@ class PhotoVerification(IDVerificationAttempt):
         message = u'LEARNER_NOW_VERIFIED signal fired for {user} from PhotoVerification'
         log.info(message.format(user=self.user.username))
 
+    @status_before_must_be("ready", "must_retry")
     def mark_submit(self):
         """
-        This is a docstring
+        Submit this attempt.
+        Valid attempt statuses when calling this method:
+            `ready`, `must_retry`
+
+        Status after method completes: `submitted`
+
+        State Transitions:
+
+            → → → `must_retry`
+            ↑        ↑ ↓
+         `ready` → `submitted`
         """
         self.submitted_at = now()
         self.status = PhotoVerification.STATUS.submitted
         self.save()
 
+    @status_before_must_be("ready", "submitted")
     def mark_must_retry(self, error=""):
         """
-        This is a docstring
+        Set the attempt status to `must_retry`.
+        Mark that this attempt could not be completed because of a system error.
+        Status should be moved to `must_retry`. For example, if Software Secure
+        service is down and we couldn't process the request even after retrying.
+
+        Valid attempt statuses when calling this method:
+            `ready`, `submitted`
+
+        Status after method completes: `must_retry`
+
+        State Transitions:
+
+            → → → must_retry
+            ↑        ↑ ↓
+          ready → submitted
         """
         self.status = PhotoVerification.STATUS.must_retry
         self.error_msg = error
@@ -736,8 +762,10 @@ class SoftwareSecurePhotoVerification(PhotoVerification):
                 copy_id_photo_from.receipt_id,
             )
 
-        log.info('----> sending request')
-        send_request_to_ss_for_user.delay(user_verification_id=self.id, copy_id_photo_from=copy_id_photo_from)
+        transaction.on_commit(
+            lambda:
+            send_request_to_ss_for_user.delay(user_verification_id=self.id, copy_id_photo_from=copy_id_photo_from)
+        )
         self.refresh_from_db()
 
     def parsed_error_msg(self):
