@@ -117,7 +117,7 @@ def transcript_credentials_handler(request, course_key_string):
         if waffle_flags()[SAVE_CREDENTIALS_IN_VAL].is_enabled(course_key):
             from edxval.api import create_or_update_transcript_credentials
             response = create_or_update_transcript_credentials(**credentials_payload)
-            error_response, is_updated = response, False if response.get('error_type') else True
+            error_response, is_updated = response, not response.get('error_type')
         else:
             error_response, is_updated = update_3rd_party_transcription_service_credentials(**credentials_payload)
         # Send appropriate response based on whether credentials were updated or not.
